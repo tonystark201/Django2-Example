@@ -1,0 +1,79 @@
+version: '3.0'
+
+services:
+
+  mysql:
+    image: mysql:5.7
+    container_name: django-mysql57
+    ports:
+      - "13306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "123456"
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: "django_demo"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      django_db:
+        ipv4_address: 172.16.0.3
+        
+
+  redis:
+    image: redis:5.0.0
+    container_name: django-redisdb
+    ports:
+      - "16379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      django_db:
+        ipv4_address: 172.16.0.5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django-api-service
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+    depends_on:
+      - redis
+      - mysql
+    command:
+      - /bin/sh
+      - -c
+      - |
+         uwsgi --ini deploy/api_uwsgi.ini >> /dev/null
+    networks:
+      django_db:
+        ipv4_address: 172.16.0.10
+
+  jwtd:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: django-jwtd-service
+    ports:
+      - "8001:8001"
+      - "9001:9001"
+    depends_on:
+      - redis
+      - mysql
+    command:
+      - /bin/sh
+      - -c
+      - |
+        uwsgi --ini deploy/jwtd_uwsgi.ini >> /dev/null
+    networks:
+      django_db:
+        ipv4_address: 172.16.0.11
+
+volumes:
+  mysql-data:
+  redis-data:
+networks:
+  django_db:
+    ipam:
+      config:
+        - subnet: 172.16.0.0/16
